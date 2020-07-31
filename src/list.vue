@@ -1,6 +1,6 @@
 // nicovideo autoplay nankadekiru   youtube 2kaime autoplay x
 // you nico add 
-/// you->nico error iframe null
+/// you->nico error iframe null nico->nico->you == nico->you
 // commit patinco 
 // test : you->you->nico->nico->you
 // test : nico->nico->you->you->nico
@@ -13,8 +13,8 @@
 			{{ it }}<button v-on:click="del_item(index)">x</button>
 		</li></ul>
 		<button @click="push">PUSH</button>
-		<button @click="ready">DELETE</button>
-		<span>{{ i }} {{ txt }} nico:{{ nico }} {{ videoId }} {{ item }}</span>
+		<button @click="play">DELETE</button>
+		<span>{{ i }} {{ txt }} nico:{{ nico }} {{ videoId }} {{ item }}<br>{{ flag }}</span>
 		<br><br>
 		<span>DEBUG:  {{ debug }}</span>
 	</div>
@@ -29,7 +29,7 @@ export default {
 			change: 0,
 			videoId: "",
 			item: '',
-			items:['http://embed.nicovideo.jp/watch/sm9178632?jsapi=1&112','https://www.nicovideo.jp/watch/sm36173874','https://www.youtube.com/embed/LN1Q7rba8DQ?enablejsapi=1&origin=http://localhost:8080','https://www.youtube.com/embed/LN1Q7rba8DQ?enablejsapi=1&origin=http://localhost:8080','https://www.youtube.com/watch?v=PD5w5E74n0c',],
+			items:['https://embed.nicovideo.jp/watch/sm9178632?jsapi=1&112','https://www.nicovideo.jp/watch/sm36173874','https://www.youtube.com/embed/LN1Q7rba8DQ?enablejsapi=1&origin=http://localhost:8080','https://www.nicovideo.jp/watch/sm36173874'],//,'https://www.youtube.com/embed/LN1Q7rba8DQ?enablejsapi=1&origin=http://localhost:8080','https://www.youtube.com/watch?v=PD5w5E74n0c','https://embed.nicovideo.jp/watch/sm9178632?jsapi=1&112'
 			i: 100,
 			txt: 'kkk',
 			msg : '',
@@ -37,13 +37,13 @@ export default {
 			flag: 1
 		}
 	},
-	/*computed: {
+	computed: {
 		player() {
 			return this.$refs.youtube.player
 		}
-	},*/
+	},
 	methods: {
-		player: function(){ return this.$refs.youtube.player },
+		// player: function(){ return this.$refs.youtube.player },Because every computed, mae no player id? wo oboeteinai node sakujodekinai.
 		trigger: function(){
 			this.add(this.msg)
 		},
@@ -56,35 +56,40 @@ export default {
 			this.items.splice(idx, 1)
 		},
 		push: function(){
-			let youtube = /youtube.com/.test(this.items[0])
-			let nicovideo = /nicovideo.jp/.test(this.items[0])
-			
-			if(youtube == true){
+			let string = this.items[0]
+			let youtube = RegExp('youtube.com').test(string)
+			let nicovideo = RegExp('nicovideo.jp').test(string)
+			this.videoId = youtube
+			if(youtube === true){
 				if(this.nico === true) {
 					this.debug = 'youtube delete [nicoWindow]'
 					this.nico = false
-					this.item = ''
 					window.removeEventListener('message', this.changeState, false)
 				}
 				let t = this.items[0].match(/[\w-]{11}/)
 				this.videoId = t[0]
-				this.debug = t[0]
 				this.you = true
 				
-			} else if(nicovideo == true){
+			} else if(nicovideo === true){
 				if(this.you === true){
 					this.debug = 'nicovideo delete [youtube player]'
 					this.you = false
 					//this.videoId = ''
-					//this.player().destroy()
+					this.player().destroy()
 				}
-				let t = this.items[0].match(/sm\d{7,8}/)
-				//let date = Date.now()
-				//let s = date.toString()
-				this.item = 'http://embed.nicovideo.jp/watch/' + t[0] + '?jsapi=1&'
-				this.nico = true
+				let t = string.match(/sm[0-9]{7,8}/iu)
+				let date = Date.now()
+				let s = date.toString()
+				this.item = 'https://embed.nicovideo.jp/watch/' + t[0] + '?jsapi=1&' + s
+				window.addEventListener('message', this.changeState, false)
+				if(this.you === false) this.nico = true
 			}
 			this.items.splice(0, 1)
+		},
+		play: function() {
+			let ifrm = document.getElementById('ifrm').contentWindow
+			const message = Object.assign({sourceConnectorType: 1, eventName: 'play'})
+			ifrm.postMessage(message, 'https://embed.nicovideo.jp')
 		},
 		unko: function(){ setTimeout(this.ready, 5000) },
 		ready: function() {
@@ -93,7 +98,7 @@ export default {
 			
 			if(this.nico === true) {
 				//document.getElementById('ifrm').setAttribute('src', this.item)
-				window.addEventListener('message', this.changeState, false)
+				//window.addEventListener('message', this.changeState, false)
 				setTimeout(this.nicoReady, 5000)
 			}
 			else {
@@ -102,6 +107,7 @@ export default {
 		},
 		ended: function() {
 			this.push()
+			this.debug = "Ended"
 		},
 		error: function(event) {
 			this.i = event.data
@@ -115,12 +121,14 @@ export default {
 		},
 		changeState: function(event){
 			this.i = 0
-			this.debug = "changeState"
+			//this.debug = "changeState"
 			if(event !== null) this.i = event.data.data.playerStatus
-			if(this.i === 4){
-				this.push()
+			if(this.i === 4 && this.flag === 1){
 				this.i = 0
-			}
+				this.push()
+				this.flag = 0
+				//this.debug = "change"
+			} else if (this.i === 2) this.flag = 1
 		},
 		youUpdate: function() {
 			this.nico = true
@@ -129,19 +137,19 @@ export default {
 			});
 		},
 		youReady: function() {
-			this.debug = 'youReady'
+			//this.debug = 'youReady'
 			//this.player().playVideo()
 		},
 		nicoReady: function() {
-			this.debug = 'nicoReady'
+			//this.debug = 'nicoReady'
 			this.$nextTick(function() {
 				
-				let ifrm = document.getElementById('ifrm').contentWindow
+				//let ifrm = document.getElementById('ifrm').contentWindow
 			//ifrm.location.reload(true)
 			//ifrm.attr('src', this.item)
 			
-				const message = Object.assign({sourceConnectorType: 1, eventName: 'play'})
-				ifrm.postMessage(message, 'http://embed.nicovideo.jp')
+				//const message = Object.assign({sourceConnectorType: 1, eventName: 'play'})
+				//ifrm.postMessage(message, 'https://embed.nicovideo.jp')
 			//window.addEventListener('message', this.changeState, false)
 			})
 		}
